@@ -13,13 +13,13 @@ import (
 )
 
 type Cron struct {
-	EpochStart int64         `json:"epochStart"`
-	EpochEnd   int64         `json:"epochEnd"`
-	ExitCode   int           `json:"exitCode"`
-	Monitor    Monitor       `json:"monitor"`
-	Timeout    time.Duration `json:"timeout"`
-	Duration   int64         `json:"duration"`
-	Args       []string      `json:"args"`
+	StartTime time.Time     `json:"startTime"`
+	EndTime   time.Time     `json:"endTime"`
+	ExitCode  int           `json:"exitCode"`
+	Monitor   Monitor       `json:"monitor"`
+	Timeout   time.Duration `json:"timeout"`
+	Duration  time.Duration `json:"duration"`
+	Args      []string      `json:"args"`
 }
 
 type Monitor struct {
@@ -52,13 +52,13 @@ func (c *Cron) Run() error {
 // start() runs the command and sets the metadata
 func (c *Cron) start() {
 	// set the start time
-	c.EpochStart = time.Now().Unix()
+	c.StartTime = time.Now()
 
 	// set namespace
 	c.setNamespace()
 
 	// set prefix
-	c.setPrefix()
+	c.setMetricPrefix()
 
 	// execute the command
 	if err := raw_cmd(c.Args); err != nil {
@@ -80,10 +80,10 @@ func (c *Cron) start() {
 // finish() updates the metadata after the command has executed
 func (c *Cron) finish() {
 	// set the end time
-	c.EpochEnd = time.Now().Unix()
+	c.EndTime = time.Now()
 
-	// calculate the duration
-	c.Duration = c.EpochEnd - c.EpochStart
+	// calculate the duration in milliseconds
+	c.Duration = c.EndTime.Sub(c.StartTime)
 
 	// write the metrics
 	if config.CRON_METRICS {
@@ -166,7 +166,7 @@ func (c *Cron) setNamespace() {
 	c.Monitor.Namespace = strings.ToLower(c.Monitor.Namespace)
 }
 
-func (c *Cron) setPrefix() {
+func (c *Cron) setMetricPrefix() {
 	// set the prefix, if provided
 	c.Monitor.Prefix = config.CRON_METRICS_PREFIX
 	if c.Monitor.Prefix != "" {
@@ -182,26 +182,14 @@ func (c *Cron) writeMetrics() {
 		Prefix:    c.Monitor.Prefix,
 		Metrics: []monitor.Metric{
 			{
-				Name:  "cron_start_seconds",
-				Help:  "Start time of cronjob last run",
-				Type:  "counter",
-				Value: int(c.EpochStart),
-			},
-			{
-				Name:  "cron_end_seconds",
-				Help:  "End time of cronjob last run",
-				Type:  "counter",
-				Value: int(c.EpochEnd),
-			},
-			{
 				Name:  "cron_exit_code",
 				Help:  "Exit code of cronjob last run",
 				Type:  "gauge",
 				Value: c.ExitCode,
 			},
 			{
-				Name:  "cron_duration_seconds",
-				Help:  "Duration of cronjob last run",
+				Name:  "cron_duration",
+				Help:  "Duration of cronjob last run (milliseconds)",
 				Type:  "gauge",
 				Value: int(c.Duration),
 			},
