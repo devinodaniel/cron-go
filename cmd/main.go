@@ -83,7 +83,7 @@ func (c *Cron) finish() {
 	c.EndTime = time.Now()
 
 	// calculate the duration in milliseconds
-	c.Duration = c.EndTime.Sub(c.StartTime)
+	c.Duration = time.Duration(c.EndTime.Sub(c.StartTime).Truncate(time.Microsecond).Milliseconds())
 
 	// write the metrics
 	if config.CRON_METRICS {
