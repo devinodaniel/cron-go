@@ -7,10 +7,10 @@ import (
 )
 
 var (
-	CRON_TIMEOUT       = EnvInt("CRON_TIMEOUT", 86400) // 24 hours
-	CRON_NAMESPACE     = EnvStr("CRON_NAMESPACE", "")
-	CRON_METRIC_PREFIX = EnvStr("CRON_METRIC_PREFIX", "")
-	CRON_METRIC_DIR    = EnvStr("CRON_METRIC_DIR", "/var/lib/node_exporter/textfile_collector")
+	CRON_TIMEOUT        = EnvInt("CRON_TIMEOUT", 86400)                                           // 24 hours
+	CRON_NAMESPACE      = EnvStr("CRON_NAMESPACE", "")                                            // *optional*
+	CRON_METRICS_PREFIX = EnvStr("CRON_METRICS_PREFIX", "")                                       // *optional*
+	CRON_METRICS_DIR    = EnvStr("CRON_METRICS_DIR", "/var/lib/node_exporter/textfile_collector") // no trailing slash
 )
 
 // EnvString retrieves the string value of the environment variable named by the key.
