@@ -28,6 +28,12 @@ type Monitor struct {
 	Prefix     string             `json:"prefix"`
 }
 
+const (
+	CRON_SUCCESS = 0
+	CRON_FAIL    = 1
+	CRON_TIMEOUT = 2
+)
+
 func New(args []string) *Cron {
 	return &Cron{
 		Args: args,
@@ -36,39 +42,43 @@ func New(args []string) *Cron {
 
 // Run() runs the cron job
 func (c *Cron) Run() error {
-	// start the cron job
-	if err := c.start(); err != nil {
-		return err
-	}
+	c.start()
 
-	// finish the cron job
-	if err := c.finish(); err != nil {
-		return err
-	}
+	c.finish()
 
 	return nil
 }
 
 // start() runs the command and sets the metadata
-func (c *Cron) start() error {
+func (c *Cron) start() {
 	// set the start time
 	c.EpochStart = time.Now().Unix()
 
+	// set namespace
+	c.setNamespace()
+
+	// set prefix
+	c.setPrefix()
+
 	// execute the command
 	if err := raw_cmd(c.Args); err != nil {
+		// if timeout, set the exit code to 2 (TIMEOUT)
+		if err.Error() == "TIMEOUT" {
+			c.ExitCode = CRON_TIMEOUT
+			return
+		}
+
 		// set the exit code to 1 (FAIL) if the command failed
-		c.ExitCode = 1
-		return err
+		c.ExitCode = CRON_FAIL
+		return
 	}
 
 	// if we reached this the command didn't fail so exit code is 0 (SUCCESS)
-	c.ExitCode = 0
-
-	return nil
+	c.ExitCode = CRON_SUCCESS
 }
 
 // finish() updates the metadata after the command has executed
-func (c *Cron) finish() error {
+func (c *Cron) finish() {
 	// set the end time
 	c.EpochEnd = time.Now().Unix()
 
@@ -76,9 +86,9 @@ func (c *Cron) finish() error {
 	c.Duration = c.EpochEnd - c.EpochStart
 
 	// write the metrics
-	c.writeMetrics()
-
-	return nil
+	if config.CRON_METRICS {
+		c.writeMetrics()
+	}
 }
 
 // raw_cmd() executes the cron job and returns an error if it fails. most failures are due to timeouts
@@ -104,9 +114,7 @@ func raw_cmd(args []string) error {
 	return nil
 }
 
-// writeMetrics writes the metrics to a file
-func (c *Cron) writeMetrics() {
-	// set the namespace
+func (c *Cron) setNamespace() {
 	c.Monitor.Namespace = config.CRON_NAMESPACE
 
 	// if no namespace is provided, generate one from the arguments
@@ -156,13 +164,18 @@ func (c *Cron) writeMetrics() {
 
 	// convert namespace to lowercase
 	c.Monitor.Namespace = strings.ToLower(c.Monitor.Namespace)
+}
 
+func (c *Cron) setPrefix() {
 	// set the prefix, if provided
 	c.Monitor.Prefix = config.CRON_METRICS_PREFIX
 	if c.Monitor.Prefix != "" {
 		c.Monitor.Prefix = strings.ToLower(c.Monitor.Prefix) + "_"
 	}
+}
 
+// writeMetrics writes the metrics to a file
+func (c *Cron) writeMetrics() {
 	// PROMETHEUS METRICS
 	c.Monitor.Prometheus = monitor.Prometheus{
 		Namespace: c.Monitor.Namespace,
