@@ -56,6 +56,22 @@ func TestRunFail(t *testing.T) {
 	}
 }
 
+func TestRunExitCode1(t *testing.T) {
+	config.CRON_METRICS = false
+
+	args := []string{"test", "-f", "/tmp/does_not_exist"}
+	cron := New(args)
+
+	err := cron.Run()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if cron.ExitCode != CRON_FAIL {
+		t.Errorf("Expected exit code %d, got %d", CRON_FAIL, cron.ExitCode)
+	}
+}
+
 func TestRunTimeout(t *testing.T) {
 	config.CRON_METRICS = false
 
@@ -87,6 +103,54 @@ func TestWriteMetricsWithNamespace(t *testing.T) {
 	cron.finish()
 
 	if cron.Monitor.Namespace != "test_namespace" {
-		t.Errorf("Expected namespace to be set, got empty string")
+		t.Errorf("Expected namespace to be %s, got %s", "test_namespace", cron.Monitor.Namespace)
+	}
+}
+
+func TestWriteMetricsWithNamespaceCapsAndDash(t *testing.T) {
+	config.CRON_NAMESPACE = "TEST-nameSPACE"
+	config.CRON_METRICS = false
+
+	args := []string{"echo", "hello"}
+	cron := New(args)
+
+	cron.start()
+	time.Sleep(1 * time.Second)
+	cron.finish()
+
+	if cron.Monitor.Namespace != "test_namespace" {
+		t.Errorf("Expected namespace to be %s, got %s", "test_namespace", cron.Monitor.Namespace)
+	}
+}
+
+func TestWriteMetricsWithNamespaceSpecialChars(t *testing.T) {
+	config.CRON_NAMESPACE = "TEST-nameSPACE!@$%^&*()-=+"
+	config.CRON_METRICS = false
+
+	args := []string{"echo", "hello"}
+	cron := New(args)
+
+	cron.start()
+	time.Sleep(1 * time.Second)
+	cron.finish()
+
+	if cron.Monitor.Namespace != "test_namespace" {
+		t.Errorf("Expected namespace to be %s, got %s", "test_namespace", cron.Monitor.Namespace)
+	}
+}
+
+func TestWriteMetricsWithNamespaceSpecialCharsWithSpaces(t *testing.T) {
+	config.CRON_NAMESPACE = "TEST-nameSPACE!@$%^&*()-=+ TEST AGAIN"
+	config.CRON_METRICS = false
+
+	args := []string{"echo", "hello"}
+	cron := New(args)
+
+	cron.start()
+	time.Sleep(1 * time.Second)
+	cron.finish()
+
+	if cron.Monitor.Namespace != "test_namespace_____________test_again" {
+		t.Errorf("Expected namespace to be %s, got %s", "test_namespace_____________test_again", cron.Monitor.Namespace)
 	}
 }
