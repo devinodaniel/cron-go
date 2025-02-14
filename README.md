@@ -40,13 +40,15 @@ These options can be passed to `cron` per command or set as global environment v
 
 `CRON_TIMEOUT` (seconds, default: 86400) kills the running process
 
+`CRON_NAMESPACE` (default: none, empty) sets the namespace for the metric. if one is not supplied then a name will be generated
+
+`CRON_DRYRUN` (default: false) setting true skips executing the cron commmands and prints the args
+
 `CRON_METRICS` (default: true) set to false to turn off the creation of the metrics file
 
 `CRON_METRICS_PREFIX` (default: none, empty) sets the prefix for the prometheus metrics name
 
 `CRON_METRICS_DIR` (default: /var/lib/node_exporter/textfile_collector/) directry to save the metrics files
-
-`CRON_NAMESPACE` (default: none, empty) sets the namespace for the metric. if one is not supplied then a name will be generated
 
 ## Metrics
 

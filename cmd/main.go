@@ -63,19 +63,28 @@ func (c *Cron) start() {
 	// set prefix
 	c.setMetricPrefix()
 
-	// execute the command
-	if err := raw_cmd(c.Args); err != nil {
-		// if timeout, set the exit code to 2 (TIMEOUT)
-		if err.Error() == "TIMEOUT" {
-			c.ExitCode = CRON_TIMEOUT
+	if config.CRON_DRYRUN {
+		if c.Monitor.Prefix != "" {
+			fmt.Printf("DRYRUN: Metric Prefix: %s\n", c.Monitor.Prefix)
+		}
+		fmt.Printf("DRYRUN: Metric Namespace: %s\n", c.Monitor.Namespace)
+		fmt.Printf("DRYRUN: Args: %v\n", c.Args)
+		fmt.Printf("DRYRUN: Timeout: %v\n", config.CRON_TIMEOUT)
+		return
+	} else {
+		// execute the command
+		if err := raw_cmd(c.Args); err != nil {
+			// if timeout, set the exit code to 2 (TIMEOUT)
+			if err.Error() == "TIMEOUT" {
+				c.ExitCode = CRON_TIMEOUT
+				return
+			}
+
+			// set the exit code to 1 (FAIL) if the command failed
+			c.ExitCode = CRON_FAIL
 			return
 		}
-
-		// set the exit code to 1 (FAIL) if the command failed
-		c.ExitCode = CRON_FAIL
-		return
 	}
-
 	// if we reached this the command didn't fail so exit code is 0 (SUCCESS)
 	c.ExitCode = CRON_SUCCESS
 }
@@ -128,7 +137,8 @@ func (c *Cron) setNamespace() {
 	}
 
 	// Replace invalid characters in the namespace
-	replacements := []string{".", " ", "-", "/", "\\", ":", ";", ",", "=", "(", ")", "[", "]", "{", "}", "<", ">", "|", "?", "*", "\"", "'", "`", "~", "!", "@", "#", "$", "%", "^", "&", "+", "-"}
+	replacements := []string{".", " ", "-", "/", "\\", ":", ";", ",", "=", "(", ")", "[", "]",
+		"{", "}", "<", ">", "|", "?", "*", "\"", "'", "`", "~", "!", "@", "#", "$", "%", "^", "&", "+", "-"}
 	for _, r := range replacements {
 		c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, r, "_")
 	}
@@ -143,10 +153,10 @@ func (c *Cron) setNamespace() {
 	// https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 	if ok, _ := regexp.MatchString("^[a-zA-Z_:][a-zA-Z0-9_:]*$", c.Monitor.Namespace); !ok {
 		// randomly generate a random id for namespace if the provided one is invalid
+		// this is a stopgap to prevent a cronjob from failing because of an invalid namespace
 		randomID := uuid.New()
 		c.Monitor.Namespace = "randomid_" + randomID.String()
 		fmt.Printf("Invalid namespace: generated a randomid: %s", c.Monitor.Namespace)
-
 	}
 }
 
@@ -166,34 +176,60 @@ func (c *Cron) writeMetrics() {
 		Prefix:    c.Monitor.Prefix,
 		Metrics: []monitor.Metric{
 			{
-				Name:  "cron_start_time",
-				Help:  "Start time of cronjob last run (epoch)",
-				Type:  "gauge",
-				Value: int(c.StartTime.Unix()),
+				Name:   "cron_start_time",
+				Help:   "Start time of cronjob last run (epoch)",
+				Type:   "gauge",
+				Value:  int(c.StartTime.Unix()),
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 			{
-				Name:  "cron_end_time",
-				Help:  "End time of cronjob last run (epoch)",
-				Type:  "gauge",
-				Value: int(c.EndTime.Unix()),
+				Name:   "cron_end_time",
+				Help:   "End time of cronjob last run (epoch)",
+				Type:   "gauge",
+				Value:  int(c.EndTime.Unix()),
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 			{
-				Name:  "cron_exit_code",
-				Help:  "Exit code of cronjob last run",
-				Type:  "gauge",
-				Value: c.ExitCode,
+				Name:   "cron_exit_code",
+				Help:   "Exit code of cronjob last run",
+				Type:   "gauge",
+				Value:  c.ExitCode,
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 			{
-				Name:  "cron_duration_milliseconds",
-				Help:  "Duration of cronjob last run (milliseconds)",
-				Type:  "gauge",
-				Value: int(c.Duration.Milliseconds()),
+				Name:   "cron_duration_milliseconds",
+				Help:   "Duration of cronjob last run (milliseconds)",
+				Type:   "gauge",
+				Value:  int(c.Duration.Milliseconds()),
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
+			},
+			{
+				Name:   "cron_timeout",
+				Help:   "Timeout of cronjob",
+				Type:   "gauge",
+				Value:  config.CRON_TIMEOUT,
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
+			},
+			{
+				Name:   "cron_dryrun",
+				Help:   "Dryrun mode",
+				Type:   "gauge",
+				Value:  boolToInt(config.CRON_DRYRUN),
+				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 		},
 	}
 
 	// write the metrics to a file
 	c.Monitor.Prometheus.WriteMetrics()
+}
+
+// boolToInt converts a boolean to an integer
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func main() {

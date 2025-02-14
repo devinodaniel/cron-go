@@ -9,7 +9,8 @@ import (
 var (
 	CRON_TIMEOUT        = EnvInt("CRON_TIMEOUT", 86400)                                           // 24 hours
 	CRON_NAMESPACE      = EnvStr("CRON_NAMESPACE", "")                                            // *optional*
-	CRON_METRICS        = EnvBool("CRON_METRICS", true)                                           //
+	CRON_DRYRUN         = EnvBool("CRON_DRYRUN", false)                                           // *optional*
+	CRON_METRICS        = EnvBool("CRON_METRICS", true)                                           // *optional*
 	CRON_METRICS_PREFIX = EnvStr("CRON_METRICS_PREFIX", "")                                       // *optional*
 	CRON_METRICS_DIR    = EnvStr("CRON_METRICS_DIR", "/var/lib/node_exporter/textfile_collector") // no trailing slash
 )

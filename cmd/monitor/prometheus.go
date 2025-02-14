@@ -15,10 +15,11 @@ type Prometheus struct {
 }
 
 type Metric struct {
-	Name  string `json:"name"`
-	Help  string `json:"help"`
-	Type  string `json:"type"`
-	Value int    `json:"value"`
+	Name   string            `json:"name"`
+	Help   string            `json:"help"`
+	Type   string            `json:"type"`
+	Value  int               `json:"value"`
+	Labels map[string]string `json:"labels"`
 }
 
 func (p *Prometheus) WriteMetrics() {
@@ -28,7 +29,14 @@ func (p *Prometheus) WriteMetrics() {
 	for _, metric := range p.Metrics {
 		metricLine += fmt.Sprintf("# HELP %s%s %s\n", p.Prefix, metric.Name, metric.Help)
 		metricLine += fmt.Sprintf("# TYPE %s%s %s\n", p.Prefix, metric.Name, metric.Type)
-		metricLine += fmt.Sprintf("%s%s{namespace=\"%s\"} %d\n", p.Prefix, metric.Name, p.Namespace, metric.Value)
+
+		var labels string
+		for k, v := range metric.Labels {
+			labels += fmt.Sprintf("%s=\"%s\",", k, v)
+		}
+		labels = labels[:len(labels)-1] // remove trailing comma
+
+		metricLine += fmt.Sprintf("%s%s{%s} %d\n", p.Prefix, metric.Name, labels, metric.Value)
 	}
 
 	// metric write filepath
