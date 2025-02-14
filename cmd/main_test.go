@@ -91,6 +91,25 @@ func TestRunTimeout(t *testing.T) {
 	}
 }
 
+func TestCronDuration(t *testing.T) {
+	config.CRON_METRICS = false
+
+	args := []string{"echo", "hello"}
+	cron := New(args)
+
+	cron.start()
+	time.Sleep(1 * time.Second)
+	cron.finish()
+
+	if cron.Duration < 1*time.Second || cron.Duration > 2*time.Second {
+		t.Errorf("Expected duration to be at least 1 second, got %s", cron.Duration)
+	}
+
+	if cron.Duration.Milliseconds() < 1000 || cron.Duration.Milliseconds() > 2000 {
+		t.Errorf("Expected duration to be at least 1000 milliseconds, got %d", cron.Duration.Milliseconds())
+	}
+}
+
 func TestWriteMetricsWithNamespace(t *testing.T) {
 	config.CRON_NAMESPACE = "test namespace"
 	config.CRON_METRICS = false

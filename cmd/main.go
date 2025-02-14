@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/devinodaniel/cron-go/cmd/config"
 	"github.com/devinodaniel/cron-go/cmd/monitor"
+
+	"github.com/google/uuid"
 )
 
 type Cron struct {
@@ -82,8 +85,8 @@ func (c *Cron) finish() {
 	// set the end time
 	c.EndTime = time.Now()
 
-	// calculate the duration in milliseconds
-	c.Duration = time.Duration(c.EndTime.Sub(c.StartTime).Truncate(time.Microsecond).Milliseconds())
+	// calculate the duration
+	c.Duration = c.EndTime.Sub(c.StartTime)
 
 	// write the metrics
 	if config.CRON_METRICS {
@@ -124,46 +127,27 @@ func (c *Cron) setNamespace() {
 		c.Monitor.Namespace = strings.Join(c.Args, "_")
 	}
 
-	// REPLACE invalid characters in the namespace
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ".", "_")  // period->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, " ", "_")  // space->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "-", "_")  // hyphen->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "/", "_")  // slash->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "\\", "_") // backslash->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ":", "_")  // colon->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ";", "_")  // semicolon->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ",", "_")  // comma->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "=", "_")  // equal->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "(", "_")  // left_parenthesis->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ")", "_")  // right_parenthesis->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "[", "_")  // left_bracket->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "]", "_")  // right_bracket->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "{", "_")  // left_brace->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "}", "_")  // right_brace->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "<", "_")  // less_than->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, ">", "_")  // greater_than->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "|", "_")  // pipe->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "?", "_")  // question_mark->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "*", "_")  // asterisk->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "\"", "_") // double_quote->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "'", "_")  // single_quote->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "`", "_")  // backtick->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "~", "_")  // tilde->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "!", "_")  // exclamation_mark->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "@", "_")  // at_sign->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "#", "_")  // hash->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "$", "_")  // dollar->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "%", "_")  // percent->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "^", "_")  // caret->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "&", "_")  // ampersand->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "+", "_")  // plus->underscore
-	c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, "-", "_")  // minus->underscore
+	// Replace invalid characters in the namespace
+	replacements := []string{".", " ", "-", "/", "\\", ":", ";", ",", "=", "(", ")", "[", "]", "{", "}", "<", ">", "|", "?", "*", "\"", "'", "`", "~", "!", "@", "#", "$", "%", "^", "&", "+", "-"}
+	for _, r := range replacements {
+		c.Monitor.Namespace = strings.ReplaceAll(c.Monitor.Namespace, r, "_")
+	}
 
-	// remove any leading or trailing underscores
+	// remove leading and trailing underscores
 	c.Monitor.Namespace = strings.Trim(c.Monitor.Namespace, "_")
 
 	// convert namespace to lowercase
 	c.Monitor.Namespace = strings.ToLower(c.Monitor.Namespace)
+
+	// validate that the namespace matches the regex [a-zA-Z_:][a-zA-Z0-9_:]*
+	// https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+	if ok, _ := regexp.MatchString("^[a-zA-Z_:][a-zA-Z0-9_:]*$", c.Monitor.Namespace); !ok {
+		// randomly generate a random id for namespace if the provided one is invalid
+		randomID := uuid.New()
+		c.Monitor.Namespace = "randomid_" + randomID.String()
+		fmt.Printf("Invalid namespace: generated a randomid: %s", c.Monitor.Namespace)
+
+	}
 }
 
 func (c *Cron) setMetricPrefix() {
@@ -182,16 +166,28 @@ func (c *Cron) writeMetrics() {
 		Prefix:    c.Monitor.Prefix,
 		Metrics: []monitor.Metric{
 			{
+				Name:  "cron_start_time",
+				Help:  "Start time of cronjob last run (epoch)",
+				Type:  "gauge",
+				Value: int(c.StartTime.Unix()),
+			},
+			{
+				Name:  "cron_end_time",
+				Help:  "End time of cronjob last run (epoch)",
+				Type:  "gauge",
+				Value: int(c.EndTime.Unix()),
+			},
+			{
 				Name:  "cron_exit_code",
 				Help:  "Exit code of cronjob last run",
 				Type:  "gauge",
 				Value: c.ExitCode,
 			},
 			{
-				Name:  "cron_duration",
+				Name:  "cron_duration_milliseconds",
 				Help:  "Duration of cronjob last run (milliseconds)",
 				Type:  "gauge",
-				Value: int(c.Duration),
+				Value: int(c.Duration.Milliseconds()),
 			},
 		},
 	}
