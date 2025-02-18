@@ -176,14 +176,14 @@ func (c *Cron) writeMetrics() {
 		Prefix:    c.Monitor.Prefix,
 		Metrics: []monitor.Metric{
 			{
-				Name:   "cron_start_time",
+				Name:   "cron_start_time_seconds",
 				Help:   "Start time of cronjob last run (epoch)",
 				Type:   "gauge",
 				Value:  int(c.StartTime.Unix()),
 				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 			{
-				Name:   "cron_end_time",
+				Name:   "cron_end_time_seconds",
 				Help:   "End time of cronjob last run (epoch)",
 				Type:   "gauge",
 				Value:  int(c.EndTime.Unix()),
@@ -204,7 +204,7 @@ func (c *Cron) writeMetrics() {
 				Labels: map[string]string{"namespace": c.Monitor.Namespace},
 			},
 			{
-				Name:   "cron_timeout",
+				Name:   "cron_timeout_seconds",
 				Help:   "Timeout of cronjob",
 				Type:   "gauge",
 				Value:  config.CRON_TIMEOUT,
