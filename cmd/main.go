@@ -232,6 +232,20 @@ func boolToInt(b bool) int {
 	return 0
 }
 
+func usage() {
+	fmt.Println("Usage: cron-runner <any-command-or-script> [args]")
+	fmt.Println("Example: cron-runner echo 'hello world'")
+	fmt.Println("Example: cron-runner php /path/to/script.php")
+
+	// print the config options
+	fmt.Println("\nConfig Options (set as env vars):")
+	fmt.Printf("  CRON_TIMEOUT: %d\n", config.CRON_TIMEOUT)
+	fmt.Printf("  CRON_METRICS: %t\n", config.CRON_METRICS)
+	fmt.Printf("  CRON_METRICS_PREFIX: %s\n", config.CRON_METRICS_PREFIX)
+	fmt.Printf("  CRON_NAMESPACE: %s\n", config.CRON_NAMESPACE)
+	fmt.Printf("  CRON_DRYRUN: %t\n", config.CRON_DRYRUN)
+}
+
 func main() {
 	// get the arguments passed to the script
 	args := os.Args[1:]
@@ -239,6 +253,8 @@ func main() {
 	// Check if any arguments were provided
 	if len(args) == 0 {
 		fmt.Println("ERROR: No arguments provided. Nothing to do.")
+		fmt.Println() // space
+		usage()
 		return
 	}
 
