@@ -51,7 +51,7 @@ cron_dryrun{namespace="sleep_1"} 0
 
 ## Migrating your crons
 
-It's simple to start using `cron`. All you need to do is add the binary to the first argument in your cron syntax.
+It's simple to start using `cron-runner`. All you need to do is add the binary to the first argument in your cron syntax.
 
 **Before**
 
