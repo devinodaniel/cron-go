@@ -22,7 +22,7 @@ type Metric struct {
 	Labels map[string]string `json:"labels"`
 }
 
-func (p *Prometheus) WriteMetrics() {
+func (p *Prometheus) WriteMetrics() error {
 	var metricLine string
 
 	// generate the metrics string for each metric
@@ -45,6 +45,8 @@ func (p *Prometheus) WriteMetrics() {
 	// write metrics to file
 	filePath := metricsFile
 	if err := os.WriteFile(filePath, []byte(metricLine), 0644); err != nil {
-		fmt.Printf("Error writing metrics to file: %v\n", err)
+		return fmt.Errorf("Error writing metrics to file: %v\n", err)
 	}
+
+	return nil
 }
