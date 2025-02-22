@@ -89,14 +89,10 @@ Metrics are emitted as `.prom` [Prometheus](http://prometheus.io) scrapable text
 [node-exporter]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 [text-collector]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 
-```
-
-Set `CRON_METRIC_PREFIX` to give a prefix to the metrics name. With `CRON_METRIC_PREFIX=cronhost`:
-
-Example: 
+Set `CRON_METRIC_PREFIX` to give a prefix to the metrics name. For example, with `CRON_METRIC_PREFIX=prodcronhost`.
 
 ```
-cronhost_cron_start_seconds{cronjob_name="$namespace"} $start_time
+prodcronhost_cron_start_seconds{cronjob_name="$namespace"} $start_time
 ```
 
 ### Exit Code vs Status Code
