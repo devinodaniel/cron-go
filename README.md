@@ -1,4 +1,4 @@
-# cron-go
+# cron-runner
 
 A simple cron execution wrapper that allows you to gather information about your crons.
 
