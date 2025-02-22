@@ -17,7 +17,7 @@ go build -v -o cron-runner ./cmd
 Technically, this doesn't have to be run with a cron. You can execute any command to create metrics about it.
 
 ```
-$ ./cron-runner sleep 60
+$ ./cron-runner sleep 1
 $ cat cron_sleep_1_metrics.prom  
 
 # HELP cron_start_time_seconds Start time of cronjob last run (epoch)
@@ -46,7 +46,7 @@ cron_dryrun{namespace="sleep_1"} 0
 ### With cron
 
 ```bash
-* * * * * ./cron-runner sleep 60
+* * * * * ./cron-runner sleep 1
 ```
 
 ## Migrating your crons
