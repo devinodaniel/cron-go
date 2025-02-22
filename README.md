@@ -79,7 +79,7 @@ These options can be passed to `cron-runner` per command or set as global enviro
 
 `CRON_METRICS_PREFIX` (default: none, empty) sets the prefix for the prometheus metrics name
 
-`CRON_METRICS_DIR` (default: /var/lib/node_exporter/textfile_collector/) directry to save the metrics files
+`CRON_METRICS_DIR` (default: `/var/lib/node_exporter/textfile_collector`) directory to save the metrics files
 
 
 ## Metrics
@@ -89,24 +89,6 @@ Metrics are emitted as `.prom` [Prometheus](http://prometheus.io) scrapable text
 [node-exporter]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 [text-collector]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 
-Example:
-
-```
-# HELP cron_start_seconds Start time of cronjob last run
-# TYPE cron_start_seconds counter
-cron_start_seconds{cronjob_name="$namespace"} $start_time
-
-# HELP cron_end_seconds End time of cronjob last run
-# TYPE cron_end_seconds counter
-cron_end_seconds{cronjob_name="$namespace"} $end_time
-
-# HELP cron_status_code Exit code of cronjob last run
-# TYPE cron_status_code gauge
-cron_status_code{cronjob_name="$namespace"} $status_code
-
-# HELP cron_exit_code Exit code of cronjob last run
-# TYPE cron_exit_code gauge
-cron_exit_code{cronjob_name="$namespace"} $exit_code
 ```
 
 Set `CRON_METRIC_PREFIX` to give a prefix to the metrics name. With `CRON_METRIC_PREFIX=cronhost`:
