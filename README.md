@@ -109,11 +109,11 @@ This separation makes it easy to determine if crons are failing and why via `sta
 | CRON_STATUS_TIMEOUT   | 2           |
 | CRON_STATUS_TERMINATED| 3           |
 
-| Description               | Exit Code               |
-|---------------------------|-------------------------|
-| CRON_EXITCODE_UNKNOWN     | -1                      |
-| CRON_EXITCODE_SUCCESS     | 0                       |
-| CRON_EXITCODE_FAIL_GENERIC| 1                       |
+| Description               | Exit Code |
+|---------------------------|-----------|
+| CRON_EXITCODE_UNKNOWN     | -1        |
+| CRON_EXITCODE_SUCCESS     | 0         |
+| CRON_EXITCODE_FAIL_GENERIC| 1         |
 
 ## Security concerns
 
