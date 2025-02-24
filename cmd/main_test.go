@@ -247,6 +247,7 @@ func TestRunTimeout(t *testing.T) {
 
 func TestCronDuration(t *testing.T) {
 	config.CRON_METRICS = false
+	config.CRON_TIMEOUT = 3
 
 	args := []string{"sleep", "1"}
 	cron, _ := New(args)
