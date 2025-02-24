@@ -13,7 +13,7 @@ import (
 func TestNew(t *testing.T) {
 	config.CRON_METRICS = false
 
-	args := []string{"echo", "hello"}
+	args := []string{"echo", "hello world"}
 	cron, _ := New(args)
 
 	if len(cron.Args) != len(args) {
@@ -48,7 +48,7 @@ func TestNewNoArgs(t *testing.T) {
 func TestRunSimpleSuccess(t *testing.T) {
 	config.CRON_METRICS = false
 
-	args := []string{"echo", "hello"}
+	args := []string{"echo", "hello world"}
 	cron, _ := New(args)
 
 	err := cron.Run()
@@ -68,7 +68,7 @@ func TestRunSimpleSuccess(t *testing.T) {
 func TestRunRubySuccess(t *testing.T) {
 	config.CRON_METRICS = false
 
-	args := []string{"ruby", "-e", "puts 'hello'"}
+	args := []string{"ruby", "-e", "puts 'hello world'"}
 	cron, _ := New(args)
 
 	err := cron.Run()
@@ -106,7 +106,7 @@ func TestRunSimpleFailStatus(t *testing.T) {
 	}
 }
 
-func TestRunSimpleExitCode1(t *testing.T) {
+func TestRunExitCode1(t *testing.T) {
 	config.CRON_METRICS = false
 
 	args := []string{"test", "-f", "/tmp/does_not_exist"}
@@ -159,7 +159,9 @@ func TestRunExitCode127(t *testing.T) {
 	}
 }
 
-func TestRunSigTerminated(t *testing.T) {
+// TestRunSigInterrupted tests the exit code when the command is interrupted
+// a typical example is when the user presses Ctrl+C
+func TestRunSigInterrupted(t *testing.T) {
 	config.CRON_METRICS = false
 
 	args := []string{"sleep", "5"}
@@ -169,9 +171,9 @@ func TestRunSigTerminated(t *testing.T) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT)
 
-	// Send an interrupt signal to the current process after 2 seconds
+	// Send an interrupt signal to the current process after 1 second
 	go func() {
-		time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Second) // one second
 		sigs <- syscall.SIGINT
 		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	}()
@@ -186,6 +188,39 @@ func TestRunSigTerminated(t *testing.T) {
 	}
 
 	if cron.ExitCode != CRON_EXITCODE_SIG_INT {
+		t.Errorf("Expected exit code %d, got %d", -1, cron.ExitCode)
+	}
+}
+
+// TestRunSigTerminated tests the exit code when the command is terminated
+// a typical example is when the user runs `kill <pid>`
+func TestRunSigTerminated(t *testing.T) {
+	config.CRON_METRICS = false
+
+	args := []string{"sleep", "5"}
+	cron, _ := New(args)
+
+	// Set up a channel to receive the interrupt signal
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM)
+
+	// Send an interrupt signal to the current process after 1 second
+	go func() {
+		time.Sleep(1 * time.Second) // one second
+		sigs <- syscall.SIGTERM
+		syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+	}()
+
+	err := cron.Run()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if cron.StatusCode != CRON_STATUS_TERMINATED {
+		t.Errorf("Expected status code %d, got %d", CRON_STATUS_TERMINATED, cron.StatusCode)
+	}
+
+	if cron.ExitCode != CRON_EXITCODE_SIG_TERM {
 		t.Errorf("Expected exit code %d, got %d", -1, cron.ExitCode)
 	}
 }
@@ -225,6 +260,14 @@ func TestCronDuration(t *testing.T) {
 
 	if cron.Duration.Milliseconds() < 1000 || cron.Duration.Milliseconds() > 2000 {
 		t.Errorf("Expected duration to be at least 1000 milliseconds and less than 2000 ms, got %d", cron.Duration.Milliseconds())
+	}
+
+	if cron.StatusCode != CRON_STATUS_SUCCESS {
+		t.Errorf("Expected status to be %d, got %d", CRON_STATUS_SUCCESS, cron.StatusCode)
+	}
+
+	if cron.ExitCode != CRON_EXITCODE_SUCCESS {
+		t.Errorf("Expected exit code to be %d, got %d", CRON_EXITCODE_SUCCESS, cron.ExitCode)
 	}
 }
 

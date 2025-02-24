@@ -2,19 +2,21 @@
 
 A simple cron execution wrapper that allows you to gather information about your crons.
 
-## How to use
+## Usage
 
-Currently, this only works for *nix systems.
+Currently, `cron-runner` has only been tested for *nix system and with the Prometheus datasource. If you've found a bug please open an Issue or PR! Seriously, that'd be cool.
 
-### Build the binary
+Premise: You will never need to rewrite your crons or change them to collect data about them. Simply add this to the cron and that's it. Keep going for more info on how to use.
 
-```bash
+### Install - Build the binary
+
+```bash 
 go build -v -o cron-runner ./cmd
 ```
 
 ### Without cron
 
-Technically, this doesn't have to be run with a cron. You can execute any command to create metrics about it.
+After you've built the binary (above)... technically, this doesn't have to be run with a cron. You can execute any command to create metrics about it.
 
 ```
 $ ./cron-runner sleep 1
@@ -68,28 +70,24 @@ It's simple to start using `cron-runner`. All you need to do is add the binary t
 ## Config
 
 These options can be passed to `cron-runner` per command or set as global environment variables.
-
-`CRON_TIMEOUT` (seconds, default: 86400) kills the running process
-
-`CRON_NAMESPACE` (default: none, empty) sets the namespace for the metric. if one is not supplied then a name will be generated
-
-`CRON_DRYRUN` (default: false) setting true skips executing the cron commmands and prints the args
-
-`CRON_METRICS` (default: true) set to false to turn off the creation of the metrics file
-
-`CRON_METRICS_PREFIX` (default: none, empty) sets the prefix for the prometheus metrics name
-
-`CRON_METRICS_DIR` (default: `/var/lib/node_exporter/textfile_collector`) directory to save the metrics files
+| Option               | Description                                                                                       | Default                                      |
+|----------------------|---------------------------------------------------------------------------------------------------|----------------------------------------------|
+| `CRON_TIMEOUT`       | Kills the running process after the specified number of seconds                                   | 86400 (24 hours)                                       |
+| `CRON_NAMESPACE`     | Sets the namespace for the metric. If not supplied, a name will be generated                      | None, empty                                  |
+| `CRON_DRYRUN`        | If set to true, skips executing the cron commands and prints the arguments                        | False                                        |
+| `CRON_METRICS`       | Set to false to turn off the creation of the metrics file                                         | True                                         |
+| `CRON_METRICS_PREFIX`| Sets the prefix for the Prometheus metrics name                                                   | None, empty (generated)                      |
+| `CRON_METRICS_DIR`   | Directory to save the metrics files. This is the default Node Exporter directory                  | `/var/lib/node_exporter/textfile_collector`  |
 
 
 ## Metrics
+This software currently emits Prometheus metrics to a `.prom` file. Currently, duration and exit code are the primary metrics. The file created is a [Node Exporter][node-exporter], and more specifically, [Textfile Collector][text-collector] scrapable text file which is just a bunch of time-series metrics. We're making some assumptions that everyone that uses this knows what Prometheus and Node Exporter is. If it's not clear, submit a PR or Issue so we can give more detail!
 
-Metrics are emitted as `.prom` [Prometheus](http://prometheus.io) scrapable text files. Typically, you would use [Node Exporter][node-exporter] with the [Textfile Collector][text-collector] to scrape the emitted metrics file. 
-
+[prometheus]: https://prometheus.io
 [node-exporter]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 [text-collector]: https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector
 
-Set `CRON_METRIC_PREFIX` to give a prefix to the metrics name. For example, with `CRON_METRIC_PREFIX=prodcronhost`.
+Set `CRON_METRIC_PREFIX` to give a prefix to the metrics name. For example, with `CRON_METRIC_PREFIX=prodcronhost` it would be this:
 
 ```
 prodcronhost_cron_start_seconds{cronjob_name="$namespace"} $start_time
@@ -101,7 +99,7 @@ Exit codes are the codes returned by the underlying script or command. Status co
 
 This separation makes it easy to determine if crons are failing and why via `status_code`, while the `exit_code` provides more data to help determine failure without having to look into logs.
 
-| Description           | Status Code |
+| Name                  | Status Code |
 |-----------------------|-------------|
 | CRON_STATUS_UNKNOWN   | -1          |
 | CRON_STATUS_SUCCESS   | 0           |
@@ -109,7 +107,7 @@ This separation makes it easy to determine if crons are failing and why via `sta
 | CRON_STATUS_TIMEOUT   | 2           |
 | CRON_STATUS_TERMINATED| 3           |
 
-| Description                  | Exit Code |
+| Name                         | Exit Code |
 |------------------------------|-----------|
 | CRON_EXITCODE_UNKNOWN        | -1        |
 | CRON_EXITCODE_SUCCESS        | 0         |
@@ -118,6 +116,8 @@ This separation makes it easy to determine if crons are failing and why via `sta
 | CRON_EXITCODE_EXEC_NOT_FOUND | 127       |
 | CRON_EXITCODE_SIG_INT        | 130       |
 | CRON_EXITCODE_SIG_TERM       | 143       |
+
+## Recommended Alerts
 
 ## Security concerns
 

@@ -56,12 +56,16 @@ const (
 	CRON_EXITCODE_SIG_TERM       = 143
 )
 
+// usage prints how to use this little cron runner
 func usage() {
 	fmt.Println("Usage: cron-runner <any-command-or-script> [args]")
-	fmt.Println("Example: cron-runner echo 'hello world'")
+	fmt.Println("Example: CRON_DRYRUN=true cron-runner echo 'hello world'")
 	fmt.Println("Example: cron-runner php /path/to/script.php")
 
 	// print the config options
+	// these should be set as global environment variables ieL profile
+	// or declared inline per cron command
+	// CRON_DRYRUN=true ./cron-runner echo 'hello world'
 	fmt.Println("\nConfig Options (set as env vars):")
 	fmt.Printf("  CRON_TIMEOUT: %d\n", config.CRON_TIMEOUT)
 	fmt.Printf("  CRON_METRICS: %t\n", config.CRON_METRICS)
