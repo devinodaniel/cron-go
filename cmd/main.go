@@ -291,8 +291,15 @@ func (c *Cron) setNamespace() {
 }
 
 func (c *Cron) setMetricPrefix() {
+	// is there an env var for the prefix?
+	if prefix := os.Getenv("CRON_METRICS_PREFIX"); prefix != "" {
+		c.Monitor.Prefix = prefix
+	}
+
 	// set the prefix, if provided
 	c.Monitor.Prefix = config.CRON_METRICS_PREFIX
+
+	// convert the prefix to lowercase
 	if c.Monitor.Prefix != "" {
 		c.Monitor.Prefix = strings.ToLower(c.Monitor.Prefix) + "_"
 	}
