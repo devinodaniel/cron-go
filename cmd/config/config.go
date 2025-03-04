@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	CRON_TIMEOUT        = EnvInt("CRON_TIMEOUT_SECONDS", 86400) // 24 hours in seconds
-	CRON_NAMESPACE      = EnvStr("CRON_NAMESPACE", "")          // *optional* underlines and lowercase only
+	CRON_TIMEOUT        = EnvInt("CRON_TIMEOUT", 86400) // 24 hours in seconds
+	CRON_NAMESPACE      = EnvStr("CRON_NAMESPACE", "")  // *optional* underlines and lowercase only
 	CRON_DRYRUN         bool
 	CRON_METRICS        bool
 	CRON_METRICS_PREFIX = EnvStr("CRON_METRICS_PREFIX", "")                                       // *optional*

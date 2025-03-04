@@ -30,16 +30,22 @@ func (p *Prometheus) WriteMetrics() error {
 		metricLine += fmt.Sprintf("# HELP %s%s %s\n", p.Prefix, metric.Name, metric.Help)
 		metricLine += fmt.Sprintf("# TYPE %s%s %s\n", p.Prefix, metric.Name, metric.Type)
 
+		// generate the labels string for each metric
 		var labels string
 		for k, v := range metric.Labels {
 			labels += fmt.Sprintf("%s=\"%s\",", k, v)
 		}
-		labels = labels[:len(labels)-1] // remove trailing comma
+		labels = labels[:len(labels)-1] // remove trailing commagearman
 
+		// full metric line
+		// <metric_prefix><metric_name>{<label_name>=<label_value>,...} <value>
+
+		// example:
+		// cron_job_duration_seconds{job="job1",status="success"} 0.5
 		metricLine += fmt.Sprintf("%s%s{%s} %d\n", p.Prefix, metric.Name, labels, metric.Value)
 	}
 
-	// metric write filepath
+	// set write filepath
 	metricsFile := fmt.Sprintf(config.CRON_METRICS_DIR+"/cron_%s_metrics.prom", p.Namespace)
 
 	// write metrics to file
