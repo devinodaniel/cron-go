@@ -45,7 +45,6 @@ type ExitCode struct {
 }
 
 // STATUS CODES
-
 const (
 	CRON_STATUS_UNKNOWN    = -1
 	CRON_STATUS_SUCCESS    = 0
@@ -55,14 +54,19 @@ const (
 	CRON_STATUS_RUNNING    = 4
 )
 
-var STATUS_CODES = []StatusCode{
-	{CRON_STATUS_UNKNOWN, "UNKNOWN"},
-	{CRON_STATUS_SUCCESS, "SUCCESS"},
-	{CRON_STATUS_FAIL, "FAIL"},
-	{CRON_STATUS_TIMEOUT, "TIMEOUT"},
-	{CRON_STATUS_TERMINATED, "TERMINATED"},
-	{CRON_STATUS_RUNNING, "RUNNING"},
-}
+var (
+	STATUS_CODES = []StatusCode{
+		{CRON_STATUS_UNKNOWN, "UNKNOWN"},
+		{CRON_STATUS_SUCCESS, "SUCCESS"},
+		{CRON_STATUS_FAIL, "FAIL"},
+		{CRON_STATUS_TIMEOUT, "TIMEOUT"},
+		{CRON_STATUS_TERMINATED, "TERMINATED"},
+		{CRON_STATUS_RUNNING, "RUNNING"},
+	}
+
+	statusCodetoName = make(map[int]string)
+	statusNametoCode = make(map[string]int)
+)
 
 func (c *Cron) SetStatusCode(code int) {
 	if _, exists := statusCodetoName[code]; exists {
@@ -83,7 +87,6 @@ func (c *Cron) GetStatusCodeName(code ...int) string {
 }
 
 // EXIT CODES
-
 const (
 	CRON_EXITCODE_UNKNOWN      = -1
 	CRON_EXITCODE_SUCCESS      = 0
@@ -97,15 +100,20 @@ const (
 	CRON_EXITCODE_SIG_TERM       = 143
 )
 
-var EXIT_CODES = []ExitCode{
-	{CRON_EXITCODE_UNKNOWN, "UNKNOWN"},
-	{CRON_EXITCODE_SUCCESS, "SUCCESS"},
-	{CRON_EXITCODE_FAIL_GENERIC, "FAIL_GENERIC"},
-	{CRON_EXITCODE_PERM_DENIED, "PERM_DENIED"},
-	{CRON_EXITCODE_EXEC_NOT_FOUND, "EXEC_NOT_FOUND"},
-	{CRON_EXITCODE_SIG_INT, "SIG_INT"},
-	{CRON_EXITCODE_SIG_TERM, "SIG_TERM"},
-}
+var (
+	EXIT_CODES = []ExitCode{
+		{CRON_EXITCODE_UNKNOWN, "UNKNOWN"},
+		{CRON_EXITCODE_SUCCESS, "SUCCESS"},
+		{CRON_EXITCODE_FAIL_GENERIC, "FAIL_GENERIC"},
+		{CRON_EXITCODE_PERM_DENIED, "PERM_DENIED"},
+		{CRON_EXITCODE_EXEC_NOT_FOUND, "EXEC_NOT_FOUND"},
+		{CRON_EXITCODE_SIG_INT, "SIG_INT"},
+		{CRON_EXITCODE_SIG_TERM, "SIG_TERM"},
+	}
+
+	exitCodetoName = make(map[int]string)
+	exitNametoCode = make(map[string]int)
+)
 
 func (c *Cron) SetExitCode(code int) {
 	if _, exists := exitCodetoName[code]; exists {
@@ -125,12 +133,6 @@ func (c *Cron) GetExitCodeName(code ...int) string {
 	return "ERR_INVALID_EXIT_CODE"
 }
 
-var statusCodetoName = make(map[int]string)
-var statusNametoCode = make(map[string]int)
-
-var exitCodetoName = make(map[int]string)
-var exitNametoCode = make(map[string]int)
-
 func init() {
 	// initialize status code maps
 	for _, s := range STATUS_CODES {
@@ -143,6 +145,18 @@ func init() {
 		exitCodetoName[e.Code] = e.Name
 		exitNametoCode[e.Name] = e.Code
 	}
+
+	// custom prometheus registry
+	// we do this so we can disable the default go_ metrics
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronStartTimeSeconds)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronEndTimeSeconds)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronStatusCode)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronExitCode)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronDurationMilliseconds)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronTimeoutSeconds)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronDryrun)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronStatus)
+	monitor.PrometheusMetricsRegistry.MustRegister(monitor.CronExit)
 }
 
 // usage prints how to use this little cron runner
@@ -232,7 +246,7 @@ func (c *Cron) start() {
 		if c.Monitor.Prefix != "" {
 			fmt.Printf("DRYRUN: Metric Prefix: %s\n", c.Monitor.Prefix)
 		}
-		fmt.Printf("DRYRUN: Metric Namespace: %s\n", c.Monitor.Namespace)
+		fmt.Printf("DRYRUN: Metric Namespace: %s\n", c.Monitor.Prometheus.Namespace)
 		fmt.Printf("DRYRUN: Args: %v\n", c.Args)
 		fmt.Printf("DRYRUN: Timeout: %v\n", config.CRON_TIMEOUT)
 		return
@@ -240,40 +254,11 @@ func (c *Cron) start() {
 
 	// write metrics file so we know its running
 	if config.CRON_METRICS {
-		c.Monitor.Prometheus = monitor.Prometheus{
-			Namespace: c.Monitor.Namespace,
-			Prefix:    c.Monitor.Prefix,
-			Metrics: []monitor.Metric{
-				{
-					Name:   "cron_start_time_seconds",
-					Help:   "Start time of cronjob last run (epoch)",
-					Type:   "gauge",
-					Value:  int(c.StartTime.Unix()),
-					Labels: map[string]string{"namespace": c.Monitor.Namespace},
-				},
-				{
-					Name:   "cron_status_code",
-					Help:   "Status code of cronjob last run",
-					Type:   "gauge",
-					Value:  c.StatusCode,
-					Labels: map[string]string{"namespace": c.Monitor.Namespace},
-				},
-				{
-					Name:   "cron_timeout_seconds",
-					Help:   "Timeout of cronjob",
-					Type:   "gauge",
-					Value:  config.CRON_TIMEOUT,
-					Labels: map[string]string{"namespace": c.Monitor.Namespace},
-				},
-				{
-					Name:   "cron_dryrun",
-					Help:   "Dryrun mode",
-					Type:   "gauge",
-					Value:  boolToInt(config.CRON_DRYRUN),
-					Labels: map[string]string{"namespace": c.Monitor.Namespace},
-				},
-			},
-		}
+
+		monitor.CronStartTimeSeconds.WithLabelValues(c.Monitor.Namespace).Set(float64(c.StartTime.Unix()))
+		monitor.CronStatusCode.WithLabelValues(c.Monitor.Namespace).Set(float64(c.StatusCode))
+		monitor.CronTimeoutSeconds.WithLabelValues(c.Monitor.Namespace).Set(float64(config.CRON_TIMEOUT))
+		monitor.CronDryrun.WithLabelValues(c.Monitor.Namespace).Set(float64(boolToInt(config.CRON_DRYRUN)))
 
 		c.writeMetrics()
 	}
@@ -306,65 +291,11 @@ func (c *Cron) finish() error {
 	c.Duration = c.EndTime.Sub(c.StartTime)
 
 	if config.CRON_METRICS {
-		// rewrite all metrics
-		c.Monitor.Prometheus.Metrics = []monitor.Metric{
-			{
-				Name:   "cron_start_time_seconds",
-				Help:   "Start time of cronjob last run (epoch)",
-				Type:   "gauge",
-				Value:  int(c.StartTime.Unix()),
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_status_code",
-				Help:   "Status code of cronjob last run",
-				Type:   "gauge",
-				Value:  c.StatusCode,
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_timeout_seconds",
-				Help:   "Timeout of cronjob",
-				Type:   "gauge",
-				Value:  config.CRON_TIMEOUT,
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_dryrun",
-				Help:   "Dryrun mode",
-				Type:   "gauge",
-				Value:  boolToInt(config.CRON_DRYRUN),
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_end_time_seconds",
-				Help:   "End time of cronjob last run (epoch)",
-				Type:   "gauge",
-				Value:  int(c.EndTime.Unix()),
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_status_code",
-				Help:   "Status code of cronjob last run",
-				Type:   "gauge",
-				Value:  c.StatusCode,
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_exit_code",
-				Help:   "Exit code of cronjob command last run",
-				Type:   "gauge",
-				Value:  c.ExitCode,
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-			{
-				Name:   "cron_duration_milliseconds",
-				Help:   "Duration of cronjob last run (milliseconds)",
-				Type:   "gauge",
-				Value:  int(c.Duration.Milliseconds()),
-				Labels: map[string]string{"namespace": c.Monitor.Namespace},
-			},
-		}
+		// set the additional metrics
+		monitor.CronEndTimeSeconds.WithLabelValues(c.Monitor.Namespace).Set(float64(c.EndTime.Unix()))
+		monitor.CronStatusCode.WithLabelValues(c.Monitor.Namespace).Set(float64(c.StatusCode))
+		monitor.CronExitCode.WithLabelValues(c.Monitor.Namespace).Set(float64(c.ExitCode))
+		monitor.CronDurationMilliseconds.WithLabelValues(c.Monitor.Namespace).Set(float64(c.Duration.Milliseconds()))
 
 		if err := c.writeMetrics(); nil != err {
 			return err
@@ -483,44 +414,27 @@ func (c *Cron) setMetricPrefix() {
 func (c *Cron) writeMetrics() error {
 	// always write metrics all cron statuses
 	for _, status := range STATUS_CODES {
-		c.Monitor.Prometheus.Metrics = append(c.Monitor.Prometheus.Metrics, monitor.Metric{
-			Name:  fmt.Sprintf("cron_status"),
-			Help:  fmt.Sprintf("Cron status for %s", c.GetStatusCodeName(status.Code)),
-			Type:  "gauge",
-			Value: boolToInt(c.StatusCode == status.Code),
-			Labels: map[string]string{
-				"namespace": c.Monitor.Namespace,
-				"status":    c.GetStatusCodeName(status.Code),
-				"code":      fmt.Sprintf("%d", status.Code),
-			},
-		})
+		monitor.CronStatus.WithLabelValues(c.Monitor.Namespace, fmt.Sprintf("%d", status.Code), status.Name).Set(boolToInt(c.StatusCode == status.Code))
 	}
 
 	// always write metrics all cron statuses
 	for _, exit := range EXIT_CODES {
-		c.Monitor.Prometheus.Metrics = append(c.Monitor.Prometheus.Metrics, monitor.Metric{
-			Name:  fmt.Sprintf("cron_exit"),
-			Help:  fmt.Sprintf("Cron exit for %s", c.GetExitCodeName(exit.Code)),
-			Type:  "gauge",
-			Value: boolToInt(c.ExitCode == exit.Code),
-			Labels: map[string]string{
-				"namespace": c.Monitor.Namespace,
-				"exit":      c.GetExitCodeName(exit.Code),
-				"code":      fmt.Sprintf("%d", exit.Code),
-			},
-		})
+		monitor.CronExit.WithLabelValues(c.Monitor.Namespace, fmt.Sprintf("%d", exit.Code), exit.Name).Set(boolToInt(c.ExitCode == exit.Code))
 	}
 
-	// write Prometheus metrics to a file
-	if err := c.Monitor.Prometheus.WriteMetrics(); nil != err {
-		return err
+	// gather the metrics
+	promMetrics, err := monitor.PrometheusMetricsRegistry.Gather()
+	if err != nil {
+		return fmt.Errorf("error gathering metrics: %v", err)
 	}
+
+	c.Monitor.Prometheus.WriteMetrics(c.Monitor.Namespace, promMetrics)
 
 	return nil
 }
 
 // boolToInt converts a boolean to an integer aka true -> 1, false -> 0
-func boolToInt(b bool) int {
+func boolToInt(b bool) float64 {
 	if b {
 		return 1
 	}

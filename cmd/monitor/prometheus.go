@@ -5,13 +5,18 @@ import (
 	"os"
 
 	"github.com/devinodaniel/cron-go/cmd/config"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/common/expfmt"
+
+	io_prometheus_client "github.com/prometheus/client_model/go"
 )
 
 type Prometheus struct {
-	Namespace string   `json:"namespace"`
-	Prefix    string   `json:"prefix"`
-	Metric    Metric   `json:"metric"`
-	Metrics   []Metric `json:"metrics"`
+	Namespace string `json:"namespace"`
+	Prefix    string `json:"prefix"`
+	Metrics   []string
 }
 
 type Metric struct {
@@ -22,37 +27,89 @@ type Metric struct {
 	Labels map[string]string `json:"labels"`
 }
 
-func (p *Prometheus) WriteMetrics() error {
-	var metricLine string
+var (
+	PrometheusMetricsRegistry = prometheus.NewRegistry()
 
-	// generate the metrics string for each metric
-	for _, metric := range p.Metrics {
-		metricLine += fmt.Sprintf("# HELP %s%s %s\n", p.Prefix, metric.Name, metric.Help)
-		metricLine += fmt.Sprintf("# TYPE %s%s %s\n", p.Prefix, metric.Name, metric.Type)
+	CronStartTimeSeconds = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_start_time_seconds",
+			Help: "Start time of cronjob last run (epoch)",
+		}, []string{"namespace"})
 
-		// generate the labels string for each metric
-		var labels string
-		for k, v := range metric.Labels {
-			labels += fmt.Sprintf("%s=\"%s\",", k, v)
-		}
-		labels = labels[:len(labels)-1] // remove trailing commagearman
+	CronEndTimeSeconds = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_end_time_seconds",
+			Help: "End time of cronjob last run (epoch)",
+		},
+		[]string{"namespace"})
 
-		// full metric line
-		// <metric_prefix><metric_name>{<label_name>=<label_value>,...} <value>
+	CronStatusCode = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_status_code",
+			Help: "Status code of cronjob last run",
+		},
+		[]string{"namespace"})
 
-		// example:
-		// cron_job_duration_seconds{job="job1",status="success"} 0.5
-		metricLine += fmt.Sprintf("%s%s{%s} %d\n", p.Prefix, metric.Name, labels, metric.Value)
-	}
+	CronExitCode = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_exit_code",
+			Help: "Exit code of cronjob command last run",
+		},
+		[]string{"namespace"})
 
+	CronDurationMilliseconds = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_duration_milliseconds",
+			Help: "Duration of cronjob last run (milliseconds)",
+		},
+		[]string{"namespace"})
+
+	CronTimeoutSeconds = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_timeout_seconds",
+			Help: "Timeout of cronjob",
+		},
+		[]string{"namespace"})
+
+	CronDryrun = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_dryrun",
+			Help: "Dryrun mode",
+		},
+		[]string{"namespace"})
+
+	CronStatus = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_status",
+			Help: "Status of cronjob last run",
+		},
+		[]string{"namespace", "code", "status"})
+
+	CronExit = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cron_exit",
+			Help: "Exit of cronjob last run",
+		},
+		[]string{"namespace", "code", "exit"})
+)
+
+func (p *Prometheus) WriteMetrics(namespace string, metrics []*io_prometheus_client.MetricFamily) error {
 	// set write filepath
-	metricsFile := fmt.Sprintf(config.CRON_METRICS_DIR+"/cron_%s_metrics.prom", p.Namespace)
+	metricsFile := fmt.Sprintf(config.CRON_METRICS_DIR+"/cron_%s_metrics.prom", namespace)
 
-	// write metrics to file
-	filePath := metricsFile
-	if err := os.WriteFile(filePath, []byte(metricLine), 0644); err != nil {
-		return fmt.Errorf("Error writing metrics to file: %v\n", err)
+	// Create or open the file
+	file, err := os.Create(metricsFile)
+	if err != nil {
+		panic(err)
 	}
+	defer file.Close()
 
+	// Encode metrics in Prometheus text format
+	encoder := expfmt.NewEncoder(file, expfmt.NewFormat(expfmt.TypeTextPlain))
+	for _, metricFamily := range metrics {
+		if err := encoder.Encode(metricFamily); err != nil {
+			panic(err)
+		}
+	}
 	return nil
 }
